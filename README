@@ -63,7 +63,10 @@ METHODS
     my @rows = $db->search($table, $where[, $opt])
         Search rows from database. For more details, please see SQL::Maker.
 
-    my ($rows, $pager) = $db->search($table, $where[, $opt])
+    my $count = $db->count($table[, $where])
+        Count rows by $where.
+
+    my ($rows, $pager) = $db->search_with_pager($table, $where[, $opt])
         *$pager* is instance of Data::Page::NoTotalEntries.
 
     my @rows = $db->search_by_sql($sql, $binds[, $table_name]);
