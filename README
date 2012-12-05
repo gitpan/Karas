@@ -38,7 +38,7 @@ METHODS
 
             Default value is : Karas::Row.
 
-        query_builder(Optional>
+        query_builder(Optional)
             This is a query builder. You need to pass the child class
             instance of SQL::Maker.
 

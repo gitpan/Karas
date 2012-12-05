@@ -2,7 +2,7 @@ package Karas;
 use strict;
 use warnings;
 use 5.010001;
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 use Carp ();
 use Class::Accessor::Lite 0.05 (
     rw => [qw/query_builder default_row_class owner_pid connection_manager row_class_map/],
@@ -442,7 +442,7 @@ This is a default row class.
 
 Default value is : B<Karas::Row>.
 
-=item query_builder(Optional>
+=item query_builder(Optional)
 
 This is a query builder. You need to pass the child class instance of SQL::Maker.
 
