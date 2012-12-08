@@ -2,7 +2,7 @@ package Karas;
 use strict;
 use warnings;
 use 5.010001;
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 use Carp ();
 use Class::Accessor::Lite 0.05 (
     rw => [qw/query_builder default_row_class owner_pid connection_manager row_class_map/],
@@ -12,9 +12,11 @@ use Module::Load ();
 use String::CamelCase ();
 use Data::Page::NoTotalEntries;
 use Scalar::Util ();
+use DBIx::Handler;
 use Class::Trigger qw(
     BEFORE_INSERT
-    AFTER_INSERT
+
+    BEFORE_BULK_INSERT
 
     BEFORE_UPDATE_ROW
     AFTER_UPDATE_ROW
@@ -28,7 +30,6 @@ use Class::Trigger qw(
 );
 
 use DBIx::TransactionManager;
-use DBIx::ForkSafe;
 
 use Karas::Row;
 use Karas::QueryBuilder;
@@ -39,21 +40,23 @@ sub new {
     unless ($args{connect_info}) {
         Carp::croak("Missing mandatory parameter: connect_info");
     }
+
+    # ref. http://blog.nomadscafe.jp/2012/11/dbi-connect.html
     $args{connect_info}->[3]->{RaiseError} //= 1;
     $args{connect_info}->[3]->{PrintError} //= 0;
     $args{connect_info}->[3]->{AutoCommit} //= 1;
     $args{connect_info}->[3]->{ShowErrorStatement} //= 1;
     $args{connect_info}->[3]->{AutoInactiveDestroy} //= 1;
+
     $args{row_class_map} = $class->load_row_class_map();
     $args{default_row_class} ||= 'Karas::Row';
-    $args{connection_manager} = DBIx::ForkSafe->new(
-        connect_info => $args{connect_info},
+    $args{connection_manager} = DBIx::Handler->new(
+        @{$args{connect_info}}
     );
     my $self = bless {
         %args
     }, $class;
-    $self->connect();
-    $self->{query_builder} ||= SQL::Maker->new(driver => $self->_driver_name);
+    $self->{query_builder} ||= Karas::QueryBuilder->new(driver => $self->_driver_name);
     return $self;
 }
 
@@ -88,24 +91,12 @@ sub dbh {
 sub disconnect {
     my ($self) = @_;
     Carp::croak("Too many arguments for Karas#disconnect") if @_!=1;
-    delete $self->{txn_manager};
     $self->connection_manager->disconnect();
-    return undef;
 }
 
 sub reconnect {
     my $self = shift;
-    $self->_in_transaction_check();
     $self->connection_manager->reconnect(@_);
-    return undef;
-}
-
-sub connect {
-    my $self = shift;
-    $self->_in_transaction_check();
-    $self->connection_manager->connect(@_);
-    delete $self->{txn_manager};
-    return undef;
 }
 
 # ------------------------------------------------------------------------- 
@@ -249,8 +240,36 @@ sub _insert {
     my $sth = $self->dbh->prepare($sql);
     $sth->execute(@binds);
     my $last_insert_id = $self->last_insert_id;
-    $self->call_trigger(AFTER_INSERT => $table, $values, $last_insert_id);
     return $last_insert_id;
+}
+
+sub retrieve {
+    my ($self, $table, $vals) = @_;
+    Carp::croak("Missing mandatory parameter: table") unless defined $table;
+    Carp::croak("Too many arguments") if @_ > 3;
+
+    my $row_class = $self->get_row_class($table);
+    my %where;
+    if (ref $vals eq 'HASH') {
+        %where = %$vals;
+    } elsif (ref $vals) {
+        Carp::croak("Bad arguments for retrieve: $vals");
+    } else {
+        my @pk = $row_class->primary_key;
+        if (@pk != 1) {
+            Carp::croak(sprintf("%s has %d primary keys, but you passed %d(%s)", $table, 0+@pk, 1, join(', ', @pk)));
+        }
+        $where{$pk[0]} = $vals;
+    }
+    my ($sql, @binds) = $self->query_builder->select($table, [\'*'], \%where);
+    my $sth = $self->dbh->prepare($sql);
+    $sth->execute(@binds);
+    my $row = $sth->fetchrow_hashref;
+    if ($row) {
+        return $row_class->new($table, $row);
+    } else {
+        return undef;
+    }
 }
 
 sub update {
@@ -266,6 +285,8 @@ sub update {
         return $rows;
     } else {
         my ($table_name, $set, $where) = @_;
+        Carp::croak("Usage: \$db->update(\$table_name, \%set, \%where)") if ref $table_name;
+        Carp::croak("Usage: \$db->update(\$table_name, \%set, \%where)") if @_!=3;
         $self->call_trigger(BEFORE_UPDATE_DIRECT => $table_name, $set, $where);
         my $rows = $self->_update($table_name, $set, $where);
         $self->call_trigger(AFTER_UPDATE_DIRECT => $table_name, $set, $where);
@@ -291,7 +312,6 @@ sub delete {
         my $where = $row->make_where_condition();
         my $retval = $self->_delete($row->table_name, $row->where);
         $self->call_trigger(AFTER_DELETE_ROW => $row);
-        $row->make_living_dead();
         return $retval;
     } else {
         my ($table_name, $where);
@@ -321,8 +341,10 @@ sub bulk_insert {
     my ($self, $table_name, $cols, $binds, $opts) = @_;
     Carp::croak("Missing mandatory parameter: table_name") unless defined $table_name;
     $self->call_trigger(BEFORE_BULK_INSERT => $table_name, $cols, $binds, $opts);
-    $self->query_builder->insert_multi($table_name, $cols, $binds, $opts);
-    return undef;
+    my ($sql, @binds) = $self->query_builder->insert_multi($table_name, $cols, $binds, $opts);
+    my $sth = $self->dbh->prepare($sql);
+    $sth->execute(@binds);
+    return $sth->rows;
 }
 
 # taken from teng.
@@ -342,19 +364,7 @@ sub guess_table_name {
 
 sub txn_scope {
     my ($self) = @_;
-    $self->{txn_manager} ||= DBIx::TransactionManager->new($self->dbh);
-    Scalar::Util::weaken($self->{txn_manager}->{dbh});
-    return $self->{txn_manager}->txn_scope;
-}
-
-sub _in_transaction_check {
-    my $self = shift;
-    return unless $self->{txn_manager};
-    if ( my $info = $self->{txn_manager}->in_transaction ) {
-        my $caller = $info->{caller};
-        my $pid    = $info->{pid};
-        Carp::confess("Detected transaction during a connect operation (last known transaction at $caller->[1] line $caller->[2], pid $pid). Refusing to proceed at");
-    }
+    return $self->connection_manager->txn_scope;
 }
 
 # taken from Teng

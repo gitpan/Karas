@@ -15,22 +15,49 @@ sub init {
     $db->add_trigger('BEFORE_INSERT' => sub {
         my ($db, $table_name, $values) = @_;
         if ($plugin->_has_created_on($db->dbh, $table_name)) {
-            $values->{'created_on'} = time();
+            unless (exists $values->{created_on}) {
+                $values->{'created_on'} = time();
+            }
         }
         if ($plugin->_has_updated_on($db->dbh, $table_name)) {
-            $values->{'updated_on'} = time();
+            unless (exists $values->{updated_on}) {
+                $values->{'updated_on'} = time();
+            }
+        }
+    });
+    $db->add_trigger('BEFORE_BULK_INSERT' => sub {
+        my ($db, $table_name, $cols, $values) = @_;
+        if ($plugin->_has_created_on($db->dbh, $table_name)) {
+            unless (grep { 'created_on' eq $_ } @$cols) {
+                push @$cols, 'created_on';
+                for my $row (@$values) {
+                    push @$row, time();
+                }
+            }
+        }
+        if ($plugin->_has_updated_on($db->dbh, $table_name)) {
+            unless (grep { 'updated_on' eq $_ } @$cols) {
+                push @$cols, 'updated_on';
+                for my $row (@$values) {
+                    push @$row, time();
+                }
+            }
         }
     });
     $db->add_trigger('BEFORE_UPDATE_ROW' => sub {
         my ($db, $row, $set) = @_;
         if ($plugin->_has_updated_on($db->dbh, $row->table_name)) {
-            $set->{'updated_on'} = time();
+            unless (exists $set->{updated_on}) {
+                $set->{'updated_on'} = time();
+            }
         }
     });
     $db->add_trigger('BEFORE_UPDATE_DIRECT' => sub {
         my ($db, $table_name, $set, $where) = @_;
         if ($plugin->_has_updated_on($db->dbh, $table_name)) {
-            $set->{'updated_on'} = time();
+            unless (exists $set->{updated_on}) {
+                $set->{'updated_on'} = time();
+            }
         }
     });
 }

@@ -18,12 +18,9 @@ no_index:
   directory:
     - inc
 provides:
-  DBIx::ForkSafe:
-    file: lib/DBIx/ForkSafe.pm
-    version: 0
   Karas:
     file: lib/Karas.pm
-    version: 0.03
+    version: 0.04
   Karas::Plugin::Timestamp:
     file: lib/Karas/Plugin/Timestamp.pm
     version: 0
@@ -40,6 +37,8 @@ requires:
   Class::Accessor::Lite: 0.05
   Class::Trigger: 0
   DBI: v1.6.14
+  DBIx::Handler: 0
+  DBIx::Inspector: 0
   DBIx::TransactionManager: 0
   Data::Page::NoTotalEntries: 0
   Module::Find: 0
@@ -51,4 +50,4 @@ requires:
   perl: 5.010001
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.03
+version: 0.04
