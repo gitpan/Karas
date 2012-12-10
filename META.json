@@ -21,6 +21,8 @@
    "prereqs" : {
       "build" : {
          "requires" : {
+            "DBD::PassThrough" : "0.02",
+            "DBD::SQLite" : "1.37",
             "Test::More" : "0.98",
             "Test::Requires" : "0"
          }
@@ -33,15 +35,15 @@
       "runtime" : {
          "requires" : {
             "Class::Accessor::Lite" : "0.05",
-            "Class::Trigger" : "0",
+            "Class::Trigger" : "0.14",
             "DBI" : "v1.6.14",
-            "DBIx::Handler" : "0",
+            "DBIx::Handler" : "0.04",
             "DBIx::Inspector" : "0",
-            "DBIx::TransactionManager" : "0",
+            "DBIx::TransactionManager" : "1.11",
             "Data::Page::NoTotalEntries" : "0",
             "Module::Find" : "0",
             "Module::Load" : "0",
-            "SQL::Maker" : "0",
+            "SQL::Maker" : "1.07",
             "Scalar::Util" : "0",
             "String::CamelCase" : "0",
             "parent" : "0",
@@ -52,7 +54,19 @@
    "provides" : {
       "Karas" : {
          "file" : "lib/Karas.pm",
-         "version" : "0.04"
+         "version" : "0.05"
+      },
+      "Karas::Dumper" : {
+         "file" : "lib/Karas/Dumper.pm",
+         "version" : 0
+      },
+      "Karas::Loader" : {
+         "file" : "lib/Karas/Loader.pm",
+         "version" : 0
+      },
+      "Karas::Plugin::InsertOnDuplicate" : {
+         "file" : "lib/Karas/Plugin/InsertOnDuplicate.pm",
+         "version" : 0
       },
       "Karas::Plugin::Timestamp" : {
          "file" : "lib/Karas/Plugin/Timestamp.pm",
@@ -77,5 +91,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.04"
+   "version" : "0.05"
 }

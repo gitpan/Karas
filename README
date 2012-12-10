@@ -33,11 +33,6 @@ METHODS
         connect_info(Required)
             connect_info is an arguments for "DBI->connect".
 
-        default_row_class(Optional)
-            This is a default row class.
-
-            Default value is : Karas::Row.
-
         query_builder(Optional)
             This is a query builder. You need to pass the child class
             instance of SQL::Maker.
@@ -100,9 +95,6 @@ METHODS
         This is a bulk insert method. see SQL::Maker::Plugin::InsertMulti.
 
   Row class map management
-    $db->clear_row_class_map_cache()
-        Clear the row class map cache.
-
     $db->get_row_class($table_name);
         Clear row class from table name.
 
@@ -133,11 +125,6 @@ ROW CLASS DETECTION
 
         parent MyDB;
         use parent qw/Karas/;
-
-    Karas loads MyDB::Row::* automatically.
-
-    Result of MyDB::Row is cached. You can clear cache by
-    "Karas->clear_row_class_map_cache".
 
 FAQ
     How do you suppress creating objects?
