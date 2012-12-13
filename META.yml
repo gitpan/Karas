@@ -22,7 +22,7 @@ no_index:
 provides:
   Karas:
     file: lib/Karas.pm
-    version: 0.06
+    version: 0.07
   Karas::Dumper:
     file: lib/Karas/Dumper.pm
     version: 0
@@ -37,9 +37,6 @@ provides:
     version: 0
   Karas::Row:
     file: lib/Karas/Row.pm
-    version: 0
-  Karas::Row::Raw:
-    file: lib/Karas/Row/Raw.pm
     version: 0
 requires:
   Class::Accessor::Lite: 0.05
@@ -57,4 +54,4 @@ requires:
   perl: 5.010001
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.06
+version: 0.07

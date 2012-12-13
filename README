@@ -135,14 +135,6 @@ ROW CLASS DETECTION
         use parent qw/Karas/;
 
 FAQ
-    How do you suppress creating objects?
-        You can use Karas::Row::Raw.
-
-            my $karas = Karas->new(..., default_row_class => 'Karas::Row::Raw');
-            ...
-
-        It does not bless objects and just return hashref itself.
-
 AUTHOR
     Tokuhiro Matsuno <tokuhirom AAJKLFJEF@ GMAIL COM>
 

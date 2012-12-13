@@ -53,7 +53,7 @@
    "provides" : {
       "Karas" : {
          "file" : "lib/Karas.pm",
-         "version" : "0.06"
+         "version" : "0.07"
       },
       "Karas::Dumper" : {
          "file" : "lib/Karas/Dumper.pm",
@@ -74,10 +74,6 @@
       "Karas::Row" : {
          "file" : "lib/Karas/Row.pm",
          "version" : 0
-      },
-      "Karas::Row::Raw" : {
-         "file" : "lib/Karas/Row/Raw.pm",
-         "version" : 0
       }
    },
    "release_status" : "stable",
@@ -86,5 +82,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.06"
+   "version" : "0.07"
 }

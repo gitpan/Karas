@@ -2,7 +2,7 @@ package Karas;
 use strict;
 use warnings;
 use 5.010001;
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 use Carp ();
 use Class::Accessor::Lite 0.05 (
     rw => [qw/query_builder default_row_class owner_pid connection_manager row_class_map/],
@@ -635,15 +635,6 @@ But if you use it as a parent class like following:
 =head1 FAQ
 
 =over 4
-
-=item How do you suppress creating objects?
-
-You can use L<Karas::Row::Raw>.
-
-    my $karas = Karas->new(..., default_row_class => 'Karas::Row::Raw');
-    ...
-
-It does not bless objects and just return hashref itself.
 
 =back
 
