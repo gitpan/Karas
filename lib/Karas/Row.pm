@@ -3,12 +3,10 @@ use strict;
 use warnings;
 use utf8;
 use Carp ();
-use String::CamelCase ();
 
 sub new {
-    my ($class, $table_name, $values) = @_;
+    my ($class, $values) = @_;
     bless {
-        __private_table_name   => $table_name,
         __private_dirty_column => +{},
         %$values,
     }, $class;
@@ -25,9 +23,10 @@ sub has_column   {
 
 sub get_dirty_columns { $_[0]->{__private_dirty_column} }
 
-sub mk_accessors {
+sub mk_column_accessors {
     my ($class, @cols) = @_;
-    $class = ref $class if ref $class;
+    Carp::croak("mk_column_accessors is class method.") if ref $class;
+
     for my $col (@cols) {
         Carp::croak("Column is undefined") unless defined $col;
         Carp::croak("Invalid column name: $col") if $col =~ /^__private/;
@@ -50,6 +49,9 @@ sub mk_accessors {
 
 sub make_where_condition {
     my $self = shift;
+    unless ($self->primary_key()) {
+        Carp::croak("You can't get WHERE clause for @{[ $self->table_name ]}. There is no primary key settings.");
+    }
     my %cond;
     for my $key ($self->primary_key) {
         $cond{$key} = $self->get_column($key);
@@ -69,19 +71,10 @@ sub get_column {
 sub set_column {
     my ($self, $col, $val) = @_;
     Carp::croak("Usage: Karas::Row#set_column(\$col, \$val)") unless @_==3;
-    $_[0]->{__private_dirty_column}->{$_[1]} = $_[2];
+    Carp::croak("You can't set non scalar value as column data: $col") if ref $val;
+    $self->{__private_dirty_column}->{$col} = $val;
 }
 
-our $AUTOLOAD;
-sub AUTOLOAD {
-    my $class = shift;
-    my $meth = $AUTOLOAD;
-    $meth =~ s/.*:://;
-    $class->mk_accessors($meth);
-    $class->$meth(@_);
-}
-
-# hide from AUTOLOAD
 sub DESTROY { }
 
 1;
@@ -91,9 +84,24 @@ __END__
 
 Karas::Row - row class for Karas
 
+=head1 SYNOPSIS
+
+    # Here is a synopsis. But you don't need to write this class by your hand.
+    # Karas::Dumper can generate this class by your RDBMS schema, automatically.
+    package My::Row::Member;
+    use parent qw/Karas::Row/;
+
+    sub table_name { 'member' }
+    sub primary_key { qw/id/ }
+    sub column_names { qw/id name email/ }
+
+    __PACKAGE__->mk_column_accessors(column_names());
+
+    1;
+
 =head1 DESCRIPTION
 
-Row class for Karas
+This is Row class for Karas.
 
 =head1 METHODS
 
@@ -113,10 +121,14 @@ Returns table name. It's set at constructor.
 
 Get a column value from row object. This method throws exception if column is not selected by SQL.
 
-=item AUTOLOAD
+=item $row->set_column($column_name, $value:Str)
 
-This class provides AUTOLOAD method to generate accessor automatically.
+Set a column value for row object.
 
-Accessor returns a column value.
+You can't set ScalarRef. If you want to use C<< $row->set_column('cnt' => \'cnt+1') >> form, you should use C<< $db->update($row, { cnt => \'cnt+1'}) >> instead.
+
+=item __PACKAGE__->mk_column_accessors(@column_names)
+
+Create column accessor methods by @column_names.
 
 =back

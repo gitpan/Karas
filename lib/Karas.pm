@@ -2,18 +2,15 @@ package Karas;
 use strict;
 use warnings;
 use 5.010001;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 use Carp ();
 use Class::Accessor::Lite 0.05 (
     rw => [qw/query_builder default_row_class owner_pid connection_manager row_class_map/],
 );
-use Module::Find ();
-use Module::Load ();
-use String::CamelCase ();
-use Data::Page::NoTotalEntries;
-use Scalar::Util ();
 use Class::Trigger qw(
     BEFORE_INSERT
+
+    BEFORE_REPLACE
 
     BEFORE_BULK_INSERT
 
@@ -29,6 +26,9 @@ use Class::Trigger qw(
     AFTER_DELETE_ROW
     AFTER_DELETE_DIRECT
 );
+
+use Module::Load ();
+use Data::Page::NoTotalEntries;
 
 use DBIx::TransactionManager;
 use DBIx::Handler;
@@ -144,7 +144,7 @@ sub search {
     my $row_class = $self->get_row_class($table);
     my @rows;
     while (my $row = $sth->fetchrow_hashref) {
-        push @rows, $row_class->new($table, $row);
+        push @rows, $row_class->new($row);
     }
     return @rows;
 }
@@ -171,7 +171,7 @@ sub search_with_pager {
     my $row_class = $self->get_row_class($table);
     my @rows;
     while (my $row = $sth->fetchrow_hashref) {
-        push @rows, $row_class->new($table, $row);
+        push @rows, $row_class->new($row);
     }
     my $has_next = 0;
     if (@rows == $rows+1) {
@@ -198,7 +198,7 @@ sub search_by_sql {
     my $row_class = $self->get_row_class($table_name);
     my @rows;
     while (my $row = $sth->fetchrow_hashref) {
-        push @rows, $row_class->new($table_name, $row);
+        push @rows, $row_class->new($row);
     }
     return @rows;
 }
@@ -218,7 +218,7 @@ sub insert {
     }
 
     # cannot select row. just create new object from arguments.
-    return $row_class->new($table, $values);
+    return $row_class->new($values);
 }
 
 sub fast_insert {
@@ -233,6 +233,15 @@ sub _insert {
     my ($self, $table, $values) = @_;
     $self->call_trigger(BEFORE_INSERT => $table, $values);
     my ($sql, @binds) = $self->query_builder->insert($table, $values);
+    my $sth = $self->dbh->prepare($sql);
+    $sth->execute(@binds);
+    return undef;
+}
+
+sub replace {
+    my ($self, $table, $values) = @_;
+    $self->call_trigger(BEFORE_REPLACE => $table, $values);
+    my ($sql, @binds) = $self->query_builder->insert($table, $values, {prefix => 'REPLACE INTO'});
     my $sth = $self->dbh->prepare($sql);
     $sth->execute(@binds);
     my $last_insert_id = $self->last_insert_id;
@@ -262,7 +271,7 @@ sub retrieve {
     $sth->execute(@binds);
     my $row = $sth->fetchrow_hashref;
     if ($row) {
-        return $row_class->new($table, $row);
+        return $row_class->new($row);
     } else {
         return undef;
     }
@@ -334,13 +343,44 @@ sub refetch {
 }
 
 sub bulk_insert {
-    my ($self, $table_name, $cols, $binds, $opts) = @_;
+    my ($self, $table_name, $rows_data) = @_;
     Carp::croak("Missing mandatory parameter: table_name") unless defined $table_name;
-    $self->call_trigger(BEFORE_BULK_INSERT => $table_name, $cols, $binds, $opts);
-    my ($sql, @binds) = $self->query_builder->insert_multi($table_name, $cols, $binds, $opts);
-    my $sth = $self->dbh->prepare($sql);
-    $sth->execute(@binds);
-    return $sth->rows;
+    Carp::croak("rows_data must be ArrayRef") unless ref $rows_data eq 'ARRAY';
+
+    if ($self->_driver_name eq 'mysql') {
+        $self->call_trigger(BEFORE_BULK_INSERT => $table_name, $rows_data);
+        my ($sql, @binds) = $self->query_builder->insert_multi($table_name, $rows_data);
+        my $sth = $self->dbh->prepare($sql);
+        $sth->execute(@binds);
+        return $sth->rows;
+    } else {
+        # emulate bulk insert.
+        $self->call_trigger(BEFORE_BULK_INSERT => $table_name, $rows_data);
+        my $txn = $self->txn_scope();
+        {
+            # Do not run 'BEFORE_INSERT' hook for consistency between mysql.
+            for my $row (@$rows_data) {
+                my ($sql, @binds) = $self->query_builder->insert($table_name, $row);
+                my $sth = $self->dbh->prepare($sql);
+                $sth->execute(@binds);
+            }
+        }
+        $txn->commit;
+    }
+}
+
+sub insert_on_duplicate {
+    my ($self, $table_name, $insert_values, $update_values) = @_;
+    if ($self->_driver_name eq 'mysql') {
+        $self->call_trigger(BEFORE_INSERT_ON_DUPLICATE => $table_name, $insert_values, $update_values);
+        my ($sql, @binds) = $self->query_builder->insert_on_duplicate($table_name, $insert_values, $update_values);
+        my $sth = $self->dbh->prepare($sql);
+        $sth->execute(@binds);
+    } else {
+        Carp::croak("'insert_on_duplicate' method only supports mysql: " . $self->_driver_name);
+    }
+
+    return undef;
 }
 
 # taken from teng.
@@ -403,7 +443,7 @@ Karas - Yet another O/R Mapper.
     my $member = $db->insert('member' => {
         name => 'John',
     });
-    $db->update($db->member, {
+    $db->update($member, {
         name => 'Mills',
     });
     $member = $db->refetch($member);
@@ -504,6 +544,10 @@ Insert row to database. And refetch row from database.
 
 Insert row to database.
 
+=item $db->replace($table, $values);
+
+Replace into row to database.
+
 =item $db->update($row, \%opts)
 
 Update row object by \%opts.
@@ -524,7 +568,12 @@ Delete $table_name where $where.
 
 Refetch I<$row> object from database.
 
-=item $db->bulk_insert($table_name, $cols, $binds, $opts)
+=item $db->bulk_insert($table_name, $rows_data)
+
+    $db->bulk_insert('member', [
+        +{ name => 'John', email => 'john@example.com' },
+        +{ name => 'Ben',  email => 'ben@example.com' },
+    ])
 
 This is a bulk insert method. see L<SQL::Maker::Plugin::InsertMulti>.
 

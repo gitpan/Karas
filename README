@@ -9,7 +9,7 @@ SYNOPSIS
         my $member = $db->insert('member' => {
             name => 'John',
         });
-        $db->update($db->member, {
+        $db->update($member, {
             name => 'Mills',
         });
         $member = $db->refetch($member);
@@ -76,6 +76,9 @@ METHODS
     $db->fast_insert($table, $values);
         Insert row to database.
 
+    $db->replace($table, $values);
+        Replace into row to database.
+
     $db->update($row, \%opts)
         Update row object by \%opts.
 
@@ -91,7 +94,12 @@ METHODS
     $db->refetch($row)
         Refetch *$row* object from database.
 
-    $db->bulk_insert($table_name, $cols, $binds, $opts)
+    $db->bulk_insert($table_name, $rows_data)
+            $db->bulk_insert('member', [
+                +{ name => 'John', email => 'john@example.com' },
+                +{ name => 'Ben',  email => 'ben@example.com' },
+            ])
+
         This is a bulk insert method. see SQL::Maker::Plugin::InsertMulti.
 
   Row class map management

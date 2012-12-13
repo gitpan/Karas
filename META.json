@@ -41,9 +41,8 @@
             "DBIx::Inspector" : "0",
             "DBIx::TransactionManager" : "1.11",
             "Data::Page::NoTotalEntries" : "0",
-            "Module::Find" : "0",
             "Module::Load" : "0",
-            "SQL::Maker" : "1.07",
+            "SQL::Maker" : "1.09",
             "Scalar::Util" : "0",
             "String::CamelCase" : "0",
             "parent" : "0",
@@ -54,7 +53,7 @@
    "provides" : {
       "Karas" : {
          "file" : "lib/Karas.pm",
-         "version" : "0.05"
+         "version" : "0.06"
       },
       "Karas::Dumper" : {
          "file" : "lib/Karas/Dumper.pm",
@@ -62,10 +61,6 @@
       },
       "Karas::Loader" : {
          "file" : "lib/Karas/Loader.pm",
-         "version" : 0
-      },
-      "Karas::Plugin::InsertOnDuplicate" : {
-         "file" : "lib/Karas/Plugin/InsertOnDuplicate.pm",
          "version" : 0
       },
       "Karas::Plugin::Timestamp" : {
@@ -91,5 +86,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.05"
+   "version" : "0.06"
 }

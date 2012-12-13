@@ -4,9 +4,11 @@ use warnings;
 use utf8;
 use 5.0100000;
 use Carp ();
-use Karas::Dumper;
-use DBIx::Inspector;
+
 use Karas;
+
+use String::CamelCase;
+use DBIx::Inspector;
 
 sub load {
     my $class = shift;
@@ -50,7 +52,7 @@ sub load_schema {
         unshift @{"${klass}::ISA"}, 'Karas::Row';
         # make accessors
         my @column_names = map { $_->name } $table->columns();
-        $klass->mk_accessors(@column_names);
+        $klass->mk_column_accessors(@column_names);
         # define 'table_name' method
         {
             my $table_name = $table->name;
